@@ -1,0 +1,31 @@
+{
+  "name": "@cgreenhalgh/websocket-room-server",
+  "version": "0.1.2",
+  "description": "Meant to be a simple room-style messageing server to act as the live collaboration backbone for cardographer-platform",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "tsc",
+    "clean": "rm -rf ./dist/"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/cgreenhalgh/websocket-room-server.git"
+  },
+  "keywords": [],
+  "author": "Chris Greenhalgh",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/cgreenhalgh/websocket-room-server/issues"
+  },
+  "homepage": "https://github.com/cgreenhalgh/websocket-room-server#readme",
+  "devDependencies": {
+    "@types/node": "^22.10.3",
+    "@types/ws": "^8.5.13",
+    "typescript": "^5.7.2"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  }
+}
