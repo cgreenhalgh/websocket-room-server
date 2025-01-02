@@ -27,6 +27,15 @@ Requirements:
 - [ ] client connections time out (clients can ping).
 
 
+## Design
+
+Notes:
+- Each room has some state - KV store.
+- Each client has some optional state - KV store.
+- Each room has a current set of clients.
+- Each room has some actions that the room-specific server logic can perform.
+- The room-specific server logic can enforce constraints on clients joining and client state changes.
+
 ## Build & publish
 
 For npm/node dev env:
