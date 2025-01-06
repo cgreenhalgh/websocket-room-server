@@ -41,7 +41,7 @@ Notes:
 For npm/node dev env:
 ```
 sudo docker build . --tag nodedev
-sudo docker run --rm -it -v $(pwd):/app:consistent nodedev /bin/sh 
+sudo docker run --rm -it -v $(pwd):/app:consistent -p 3003:3003 nodedev /bin/sh 
 ```
 In that container:
 ```

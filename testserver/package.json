@@ -1,0 +1,32 @@
+{
+  "name": "testserver",
+  "version": "0.1.0",
+  "description": "websocket-room-server test",
+  "main": "index.js",
+  "scripts": {
+    "test": "node build",
+    "build": "tsc",
+    "clean": "rm -rf ./build/"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/cgreenhalgh/websocket-room-server.git"
+  },
+  "author": "Chris Greenhalgh",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/cgreenhalgh/websocket-room-server/issues"
+  },
+  "homepage": "https://github.com/cgreenhalgh/websocket-room-server#readme",
+  "devDependencies": {
+    "@types/node": "^22.10.5",
+    "@types/ws": "^8.5.13",
+    "typescript": "^5.7.2"
+  },
+  "dependencies": {
+    "@cgreenhalgh/websocket-room-server": "^0.1.2",
+    "polka": "^0.5.2",
+    "serve-static": "^1.16.2",
+    "ws": "^8.18.0"
+  }
+}
