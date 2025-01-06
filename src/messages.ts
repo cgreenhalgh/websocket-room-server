@@ -8,7 +8,7 @@ export interface HelloReq {
     roomCredential?: string
     clientCredential?: string
     clientType?: string
-    clientId?: string
+    clientName?: string
     clientState: KVStore
     readonly?: boolean // default true
 }

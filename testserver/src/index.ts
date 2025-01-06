@@ -3,8 +3,9 @@
 //import { handler } from '../build/handler.js';
 //import { env } from '../build/env.js';
 import polka from 'polka';
-import {wss} from '@cgreenhalgh/websocket-room-server'
+import {HelloReq, KVStore, WSS, wss} from '@cgreenhalgh/websocket-room-server'
 import serveStatic from 'serve-static'
+import { validateHelloReq } from '../../dist/messages';
 
 export const path = false
 export const host = process.env['HOST'] ?? '0.0.0.0';
@@ -22,5 +23,19 @@ const { server } = app.listen({ path, host, port }, () => {
 });
 // add my websockets to HTTP server
 wss.addWebsockets(server)
+
+const MYPROTOCOL = "cardographer:1"
+
+wss.onHelloReq = async function (wss: WSS, req: HelloReq, clientId: string) : Promise<{ clientState: KVStore, readonly: boolean } > {
+    console.log(`on hello for ${clientId} in room ${req.roomId} with protocol ${req.roomProtocol}`)
+    if (req.roomProtocol !== MYPROTOCOL) {
+        throw new Error(`wrong room protocol (${req.roomProtocol} vs ${MYPROTOCOL})`)
+    }
+    // TODO 
+    return {
+        clientState: req.clientState,
+        readonly: !!req.readonly,
+    }
+}
 
 export { app };

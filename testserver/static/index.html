@@ -3,6 +3,37 @@
         <title>Test server</title>
     </head>
     <body>
-        Hello test server
+        Hello test server:
+        <div id="msgs"></div>
+        <script>
+            console.log('hello')
+            let room = 'room123'
+            let ws = new WebSocket(`${window.location.protocol == 'https' ? 'wss' : 'ws'}://${window.location.host}/wss`)
+            ws.onerror = (event) => { console.log(`ws error`, event) }
+            ws.onclose = (event) => { console.log(`ws close`, event) }
+            let msgs = document.getElementById('msgs')
+            ws.onmessage = (event) => {
+                console.log(`ws message`, event.data)
+                let p = document.createElement('p')
+                p.append(event.data)
+                msgs.append(p)
+            }
+            ws.onopen = (event) => { 
+                console.log(`ws open`)
+                let helloReq = {
+                    protocol: 'websocket-room-server:1',
+                    // server-specific
+                    roomProtocol: 'cardographer:1',
+                    roomId: room,
+                    roomCredential: '1234',
+                    //clientCredential?: string
+                    clientType: 'testserver',
+                    //clientId?: string
+                    clientState: { 'foo': 'bar' }
+                    //readonly?: boolean // default true
+                }
+                ws.send(JSON.stringify(helloReq))
+            }
+        </script>
     </body>
 </html>
