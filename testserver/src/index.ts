@@ -3,9 +3,9 @@
 //import { handler } from '../build/handler.js';
 //import { env } from '../build/env.js';
 import polka from 'polka';
-import {HelloReq, KVStore, WSS, wss} from '@cgreenhalgh/websocket-room-server'
+import {type ActionReq,type ActionResp, type HelloReq, type KVStore, type KVSet, WSS, wss, type ChangeReq, type RoomInfo, type RoomClientInfo } from '@cgreenhalgh/websocket-room-server'
 import serveStatic from 'serve-static'
-import { validateHelloReq } from '../../dist/messages';
+import { MESSAGE_TYPE } from '../../dist/messages';
 
 export const path = false
 export const host = process.env['HOST'] ?? '0.0.0.0';
@@ -26,16 +26,39 @@ wss.addWebsockets(server)
 
 const MYPROTOCOL = "cardographer:1"
 
+// example handlers for testing/validation
 wss.onHelloReq = async function (wss: WSS, req: HelloReq, clientId: string) : Promise<{ clientState: KVStore, readonly: boolean } > {
     console.log(`on hello for ${clientId} in room ${req.roomId} with protocol ${req.roomProtocol}`)
     if (req.roomProtocol !== MYPROTOCOL) {
         throw new Error(`wrong room protocol (${req.roomProtocol} vs ${MYPROTOCOL})`)
     }
-    // TODO 
+    // TODO...?
     return {
         clientState: req.clientState,
         readonly: !!req.readonly,
     }
 }
+wss.onChangeReq = async function(wss:WSS, req:ChangeReq, room:RoomInfo, clientId:string, clientInfo:RoomClientInfo) : Promise< { roomChanges?: KVSet[], clientChanges?: KVSet[], echo?: boolean } > {
+    console.log(`vet room changes ${JSON.stringify(req.roomChanges)} & client changes ${JSON.stringify(req.clientChanges)} for ${clientId}`)
+    // TODO...?
+    return {
+        roomChanges: req.roomChanges,
+        clientChanges: req.clientChanges,
+        echo: !!req.echo,
+    }
+}
+wss.onActionReq = async function(wss:WSS, req:ActionReq, room:RoomInfo, clientId:string, clientInfo:RoomClientInfo) : Promise< ActionResp > {
+    console.log(`Action ${req.action}(${req.data}) by ${clientId}`)
+    if (req.action == 'test') {
+        return {
+            type: MESSAGE_TYPE.ACTION_RESP,
+            id: req.id,
+            success: true,
+            data: req.data,
+            // msg: 'error...'
+        }
+    }
+}
+
 
 export { app };

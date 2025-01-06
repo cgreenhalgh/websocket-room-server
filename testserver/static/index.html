@@ -5,18 +5,37 @@
     <body>
         Hello test server:
         <div id="msgs"></div>
+        <div>
+            <input id="change" type="button" value="Change!">
+            <input id="action" type="button" value="Action!">
+        </div>
         <script>
             console.log('hello')
             let room = 'room123'
+            let clientId = 'unknown'
             let ws = new WebSocket(`${window.location.protocol == 'https' ? 'wss' : 'ws'}://${window.location.host}/wss`)
-            ws.onerror = (event) => { console.log(`ws error`, event) }
-            ws.onclose = (event) => { console.log(`ws close`, event) }
+            function log(msg) {
+                let p = document.createElement('p')
+                p.append(msg)
+                msgs.append(p)
+            }
+            ws.onerror = (event) => { 
+                console.log(`ws error`, event) 
+                log(`ERROR: ${event.msg}`)
+            }
+            ws.onclose = (event) => { 
+                console.log(`ws close`, event) 
+                log("Closed!!")
+            }
             let msgs = document.getElementById('msgs')
             ws.onmessage = (event) => {
                 console.log(`ws message`, event.data)
-                let p = document.createElement('p')
-                p.append(event.data)
-                msgs.append(p)
+                log(event.data)
+                let msg = JSON.parse(event.data)
+                if (msg.type == 1) {
+                    clientId = msg.clientId
+                    console.log(`Hello resp as ${clientId}`)
+                }
             }
             ws.onopen = (event) => { 
                 console.log(`ws open`)
@@ -34,6 +53,31 @@
                 }
                 ws.send(JSON.stringify(helloReq))
             }
+            let change = document.getElementById('change')
+            let n = 0
+            change.addEventListener('click', function(ev) {
+                console.log(`click!`)
+                n++
+                let changeReq = {
+                    type: 2,
+                    echo: true,
+                    roomChanges: [{key: "focus", value: `${clientId}:${n}` }],
+                    clientChanges: [{key: "n", value: `${n}`}],
+                }
+                ws.send(JSON.stringify(changeReq))
+            })
+            let action = document.getElementById('action')
+            let aid = 0
+            action.addEventListener('click', function(ev) {
+                console.log(`action!`)
+                let actionReq = {
+                    type: 4,
+                    action: 'test',
+                    data: '1234',
+                    id: `action:${++aid}`,
+                }
+                ws.send(JSON.stringify(actionReq))
+            })
         </script>
     </body>
 </html>

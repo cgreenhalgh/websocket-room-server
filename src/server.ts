@@ -1,13 +1,13 @@
 import {WebSocketServer, WebSocket} from 'ws';
 import {EventEmitter} from 'events';
 import * as http from 'http';
-import { ActionReq, ActionResp, ChangeReq, ClientInfo, HelloReq, KVSet, KVStore, validateHelloReq, PROTOCOL } from './messages';
+import { ActionReq, ActionResp, ChangeReq, ClientInfo, HelloReq, KVSet, KVStore, validateHelloReq, PROTOCOL, HelloSuccessResp, MESSAGE_TYPE, ClientMap, ChangeNotif, validateChangeReq, ClientUpdateMap, validateActionReq } from './messages';
 
 export enum CLIENT_STATUS {
     WAITING_FOR_HELLO,
     PROCESSING_HELLO,
     ACTIVE,
-    FLUSHING,
+    CLOSING,
     CLOSED,
 }
 export interface RoomClientInfo extends ClientInfo {
@@ -20,6 +20,7 @@ interface SocketState {
     closeTimer?: ReturnType<typeof setTimeout>
     roomId?: string
     clientId?: string
+    readonly: boolean
 }
 interface SSWebSocket extends WebSocket {
     ss: SocketState
@@ -38,8 +39,8 @@ export interface RoomMap {
 }
 // throw an error to fail :-)
 export type CheckHelloReq = (wss:WSS, req:HelloReq, clientId:string) => Promise< { clientState: KVStore, readonly: boolean } >
-export type HandleActionReq = (wss:WSS, req:ActionReq, room:RoomInfo, client:RoomClientInfo) => Promise< ActionResp >
-export type CheckChangeReq = (wss:WSS, req:ChangeReq, room:RoomInfo, client:RoomClientInfo) => Promise< { roomChanges?: KVSet[], clientChanges?: KVSet[], echo?: boolean } >
+export type HandleActionReq = (wss:WSS, req:ActionReq, room:RoomInfo, clientId:string, clientInfo:RoomClientInfo) => Promise< ActionResp >
+export type CheckChangeReq = (wss:WSS, req:ChangeReq, room:RoomInfo, clientId:string, clientInfo:RoomClientInfo) => Promise< { roomChanges?: KVSet[], clientChanges?: KVSet[], echo?: boolean } >
 
 const HELLO_TIMEOUT_MS = 5000
 const HEARTBEAT_INTERVAL_MS = 10000 // 30000
@@ -97,6 +98,7 @@ export class WSS {
                 console.log(`message from ${clientId}: ${data}`);
                 try {
                     if (sws.ss.status == CLIENT_STATUS.WAITING_FOR_HELLO) {
+                        sws.ss.status = CLIENT_STATUS.PROCESSING_HELLO
                         let helloReq = validateHelloReq(JSON.parse(String(data)))
                         //console.log(`hello`, helloReq)
                         if (helloReq.protocol != PROTOCOL) {
@@ -110,6 +112,7 @@ export class WSS {
                         _this.clearTimer(sws)
                         sws.ss.status = CLIENT_STATUS.ACTIVE
                         sws.ss.roomId = helloReq.roomId
+                        sws.ss.readonly = readonly
                         // default room setup
                         let room = _this.rooms[sws.ss.roomId]
                         if (!room) {
@@ -129,21 +132,88 @@ export class WSS {
                             clientName: helloReq.clientName,
                             clientState,
                         }
-                        // TODO
+                        let helloResp: HelloSuccessResp = {
+                            type: MESSAGE_TYPE.HELLO_SUCCESS_RESP,
+                            protocol: PROTOCOL,
+                            roomProtocol: helloReq.roomProtocol, // maybe :-)
+                            clientId: sws.ss.clientId,
+                            clients: _this.getClientMap(room),
+                            roomState: room.state,
+                        }
+                        ws.send(JSON.stringify(helloResp))
+                        if (!readonly) {
+                            // announce join
+                            let addClients: ClientMap = {}
+                            addClients[sws.ss.clientId] = {
+                                clientType: helloReq.clientType,
+                                clientName: helloReq.clientName,
+                                clientState,
+                            }
+                            _this.broadcastChange(room, {type: MESSAGE_TYPE.CHANGE_NOTIF, addClients }, sws.ss.clientId )
+                        }
+                    } else if (sws.ss.status == CLIENT_STATUS.PROCESSING_HELLO) {
+                        throw new Error(`received message while processing hello`)
+                    } else if (sws.ss.status == CLIENT_STATUS.CLOSING || sws.ss.status == CLIENT_STATUS.CLOSED) {
+                        console.log(`ignore message while closing/closed`)
+                    } else if (sws.ss.status == CLIENT_STATUS.ACTIVE) {
+                        let msg = JSON.parse(String(data))
+                        if (typeof(msg.type) !== 'number') {
+                            throw new Error(`message without numerical type (${typeof(msg.type)}`)
+                        }
+                        let room = _this.rooms[sws.ss.roomId]
+                        let clientId = sws.ss.clientId
+                        let client = room.clients[clientId]
+                        if (msg.type === MESSAGE_TYPE.CHANGE_REQ) {
+                            let changeReq = validateChangeReq(msg)
+                            let { roomChanges, clientChanges, echo } = _this.onChangeReq 
+                            ? await _this.onChangeReq(wss, changeReq, room, clientId, client) 
+                            : { roomChanges: changeReq.roomChanges, clientChanges: changeReq.clientChanges, echo: !!changeReq.echo }
+                            // room changes
+                            if (roomChanges) {
+                                if (roomChanges.length > 0 && sws.ss.readonly) {
+                                    throw new Error(`readonly client cannot change room state`)
+                                }
+                                for (let c of roomChanges) {
+                                    room.state[c.key] = c.value
+                                }
+                                console.log(`room ${sws.ss.roomId} state`, room.state)
+                            }
+                            if (clientChanges) {
+                                for (let c of clientChanges) {
+                                    client.clientState[c.key] = c.value
+                                }
+                                console.log(`client ${sws.ss.clientId} state`, client.clientState)
+                            }
+                            // notify
+                            if (!sws.ss.readonly && (changeReq.clientChanges || changeReq.roomChanges)) {
+                                let updateClients: ClientUpdateMap = {}
+                                updateClients[clientId] = clientChanges
+                                let changeNotif : ChangeNotif = {
+                                    type: MESSAGE_TYPE.CHANGE_NOTIF,
+                                    roomChanges,
+                                    updateClients,
+                                }
+                                _this.broadcastChange(room, changeNotif, echo ? null : clientId)
+                            }
+                        } else if (msg.type == MESSAGE_TYPE.ACTION_REQ) {
+                            let actionReq = validateActionReq(msg)
+                            if (!_this.onActionReq) {
+                                throw new Error(`unhandled actions`)
+                            }
+                            let actionResp = await _this.onActionReq(_this, actionReq, room, clientId, client)
+                            ws.send(JSON.stringify(actionResp))
+                        } else {
+                            throw new Error(`Unhandled message type ${msg.type}`)
+                        }
                     }
-                    // E.g. echo
-                    //ws.send(data);
                 } catch (err) {
                     console.log(`Error handling message from ${clientId}: ${err.message}`, err)
-                    _this.closeSocket(sws, 'internal error: ${err.message}')
+                    _this.closeSocket(sws, `error: ${err.message}`)
                 }
             });
             ws.on('close', function () {
                 console.log(`close event on ${clientId}`);
-                _this.tidyUp(sws)
-            });
-            ws.on('disconnect', function () {
-                console.log(`disconnect event on ${clientId}`);
+                sws.ss.status = CLIENT_STATUS.CLOSED
                 _this.tidyUp(sws)
             });
             ws.on('pong', function () { sws.isAlive = true })
@@ -153,20 +223,51 @@ export class WSS {
                 closeTimer: setTimeout( () => { _this.timeoutSocket(sws) }, HELLO_TIMEOUT_MS ),
                 lastEvent: Date.now(),
                 clientId,
+                readonly : true,
             }
             sws.isAlive = true
         })
+    }
+    broadcastChange(room:RoomInfo, changeNotif: ChangeNotif, skipClientId?: string) {
+        const data = JSON.stringify(changeNotif)
+        for (const clientId in room.clients) {
+            if (clientId == skipClientId) {
+                continue
+            }
+            const client = room.clients[clientId]
+            client.ws.send(data)
+        }
+    }
+    getClientMap(room: RoomInfo): ClientMap {
+        let res:ClientMap = {}
+        for (const id in room.clients) {
+            const client = room.clients[id]
+            if (client.readonly) {
+                continue
+            }
+            res[id] = { 
+                clientState: client.clientState,
+                clientName: client.clientName,
+                clientType: client.clientType,
+            }
+        }
+        return res
     }
     tidyUp(sws: SSWebSocket) {
         this.clearTimer(sws)
         if (sws.ss.roomId && this.rooms[sws.ss.roomId] && sws.ss.clientId && this.rooms[sws.ss.roomId].clients[sws.ss.clientId]) {
             console.log(`remove client ${sws.ss.clientId} from room ${sws.ss.roomId}`)
             delete this.rooms[sws.ss.roomId].clients[sws.ss.clientId]
+            if (!sws.ss.readonly) {
+                // broadcast
+                let removeClients: string[] = [ sws.ss.clientId ]
+                this.broadcastChange(this.rooms[sws.ss.roomId], {type: MESSAGE_TYPE.CHANGE_NOTIF, removeClients })
+            }
             if (Object.keys(this.rooms[sws.ss.roomId].clients).length == 0) {
                 console.log(`room ${sws.ss.roomId} is now empty`)
             }
         }
-        // TODO more?
+        // TODO announce leave
     }
     clearTimer(sws: SSWebSocket) {
         if (sws.ss.closeTimer) {
@@ -180,6 +281,9 @@ export class WSS {
     }
     closeSocket(sws: SSWebSocket, reason: string) {
         console.log(`close ${sws.ss.clientId} - ${reason}`)
+        if (sws.ss.status === CLIENT_STATUS.ACTIVE) {
+            sws.ss.status = CLIENT_STATUS.CLOSING
+        }
         this.clearTimer(sws)
         sws.ss.closeTimer = null
         sws.close(1002, reason) // protocol error

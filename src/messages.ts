@@ -50,6 +50,7 @@ export interface ChangeReq {
 }
 // change notification - asynchronous
 export interface ChangeNotif {
+    type: MESSAGE_TYPE.CHANGE_NOTIF
     roomChanges?: KVSet[]
     // first
     updateClients?: ClientUpdateMap

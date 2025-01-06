@@ -17,14 +17,14 @@ Status: websocket server skeleton from ws example
 Requirements:
 - [x] Run in server only.
 - [x] standard websocket interface.
-- [ ] server creates (or admits) rooms.
-- [ ] clients must provide room-specific authentication.
-- [ ] clients may provide client-specific authentication, visible to server callbacks.
-- [ ] once authenticated, client messages are visible to server as events.
-- [ ] server can send messages to a single room client or all room clients.
+- [x] server creates (or admits) rooms.
+- [x] clients must provide room-specific authentication.
+- [x] clients may provide client-specific authentication, visible to server callbacks.
+- [x] once authenticated, client messages are visible to server as events.
+- [x] server can send messages to a single room client or all room clients.
 - [ ] server can close a room (ejecting all clients).
 - [ ] server can eject a single client.
-- [ ] client connections time out (clients can ping).
+- [x] client connections time out (clients can ping).
 
 
 ## Design
@@ -43,14 +43,19 @@ For npm/node dev env:
 sudo docker build . --tag nodedev
 sudo docker run --rm -it -v $(pwd):/app:consistent -p 3003:3003 nodedev /bin/sh 
 ```
+(port is just for test server - see [](testserver/))
+
 In that container:
 ```
 npm login
+npm run clean
 npm run build
 npm publish --access public
 ```
 
-## Usage
+## Server Usage
+
+See also [test server](testserver/src/index.ts).
 
 ```
 import { wss } from '@cgreenhalgh/websocket-room-server'
@@ -59,6 +64,40 @@ import { wss } from '@cgreenhalgh/websocket-room-server'
 ...
 
 wss.addWebsockets(httpServer)
+// check new clients (optional)
+wss.onHelloReq = async function (wss: WSS, req: HelloReq, clientId: string) : Promise<{ clientState: KVStore, readonly: boolean } > {
+    ...
+    return {
+        clientState: req.clientState,
+        readonly: !!req.readonly,
+    }
+}
+// validate/respond to change (optional)
+wss.onChangeReq = async function(wss:WSS, req:ChangeReq, room:RoomInfo, clientId:string, clientInfo:RoomClientInfo) : Promise< { roomChanges?: KVSet[], clientChanges?: KVSet[], echo?: boolean } > {
+    ...
+    return {
+        roomChanges: req.roomChanges,
+        clientChanges: req.clientChanges,
+        echo: !!req.echo,
+    }
+}
+// handle action request (required if used)
+wss.onActionReq = async function(wss:WSS, req:ActionReq, room:RoomInfo, clientId:string, clientInfo:RoomClientInfo) : Promise< ActionResp > {
+    if (req.action == 'test') {
+        return {
+            type: MESSAGE_TYPE.ACTION_RESP,
+            id: req.id,
+            success: true,
+            data: req.data,
+            // msg: 'error...'
+        }
+    } 
+}
 ```
-Note, path is "/wss" 
+
+### Client info
+
+Note, ws path is "/wss" 
 (to avoid conflict with e.g. vite dev websockets)
+
+See [trivial example client](testserver/static/index.html).

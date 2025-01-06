@@ -1,5 +1,12 @@
-export { WSS, wss, type CheckHelloReq, type HandleActionReq, type CheckChangeReq } from './server';
+export { WSS, wss, 
+    type CheckHelloReq, 
+    type HandleActionReq, 
+    type CheckChangeReq, 
+    type RoomInfo, 
+    type RoomClientInfo 
+} from './server';
 export { PROTOCOL, 
+    type KVSet,
     type HelloReq, 
     type HelloFailResp, 
     type HelloSuccessResp, 
