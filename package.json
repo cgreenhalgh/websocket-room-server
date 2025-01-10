@@ -1,6 +1,6 @@
 {
   "name": "@cgreenhalgh/websocket-room-server",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "Meant to be a simple room-style messageing server to act as the live collaboration backbone for cardographer-platform",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

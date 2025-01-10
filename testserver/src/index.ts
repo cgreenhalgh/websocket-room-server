@@ -3,9 +3,8 @@
 //import { handler } from '../build/handler.js';
 //import { env } from '../build/env.js';
 import polka from 'polka';
-import {type ActionReq,type ActionResp, type HelloReq, type KVStore, type KVSet, WSS, wss, type ChangeReq, type RoomInfo, type RoomClientInfo } from '@cgreenhalgh/websocket-room-server'
+import { MESSAGE_TYPE, type ActionReq,type ActionResp, type HelloReq, type KVStore, type KVSet, WSS, wss, type ChangeReq, type RoomInfo, type RoomClientInfo } from '@cgreenhalgh/websocket-room-server'
 import serveStatic from 'serve-static'
-import { MESSAGE_TYPE } from '../../dist/messages';
 
 export const path = false
 export const host = process.env['HOST'] ?? '0.0.0.0';

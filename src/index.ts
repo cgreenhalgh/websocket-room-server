@@ -17,4 +17,5 @@ export { PROTOCOL,
     type CloseReq,
     type CloseResp,
     type KVStore,
+    MESSAGE_TYPE,
 } from './messages';
