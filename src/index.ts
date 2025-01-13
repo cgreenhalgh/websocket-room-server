@@ -1,4 +1,4 @@
-export { WSS, wss, 
+export { WSS, wss, SSWebSocket,
     type CheckHelloReq, 
     type HandleActionReq, 
     type CheckChangeReq, 

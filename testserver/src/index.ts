@@ -3,8 +3,9 @@
 //import { handler } from '../build/handler.js';
 //import { env } from '../build/env.js';
 import polka from 'polka';
-import { MESSAGE_TYPE, type ActionReq,type ActionResp, type HelloReq, type KVStore, type KVSet, WSS, wss, type ChangeReq, type RoomInfo, type RoomClientInfo } from '@cgreenhalgh/websocket-room-server'
+import { MESSAGE_TYPE, type ActionReq,type ActionResp, type HelloReq, type KVStore, type KVSet, WSS, wss, type ChangeReq, type RoomInfo, type RoomClientInfo, type SSWebSocket } from '@cgreenhalgh/websocket-room-server'
 import serveStatic from 'serve-static'
+import {serialize} from 'cookie'
 
 export const path = false
 export const host = process.env['HOST'] ?? '0.0.0.0';
@@ -14,6 +15,13 @@ const app = polka() //.use(handler);
 const serve = serveStatic('static', { index: 'index.html' })
 app.use(serve)
 app.get('/test', (req, res) => {
+    res.setHeader(
+        "Set-Cookie",
+        serialize("name", 'example', {
+          httpOnly: true,
+          maxAge: 60 * 60 * 24 * 7, // 1 week
+        }),
+      );
     res.end('Hello world!');
 });
 
@@ -26,8 +34,9 @@ wss.addWebsockets(server)
 const MYPROTOCOL = "cardographer:1"
 
 // example handlers for testing/validation
-wss.onHelloReq = async function (wss: WSS, req: HelloReq, clientId: string) : Promise<{ clientState: KVStore, readonly: boolean } > {
+wss.onHelloReq = async function (wss: WSS, req: HelloReq, clientId: string, sws: SSWebSocket) : Promise<{ clientState: KVStore, readonly: boolean } > {
     console.log(`on hello for ${clientId} in room ${req.roomId} with protocol ${req.roomProtocol}`)
+    console.log(`- cookies`, sws.cookies)
     if (req.roomProtocol !== MYPROTOCOL) {
         throw new Error(`wrong room protocol (${req.roomProtocol} vs ${MYPROTOCOL})`)
     }

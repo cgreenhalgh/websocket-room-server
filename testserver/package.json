@@ -25,6 +25,7 @@
   },
   "dependencies": {
     "@cgreenhalgh/websocket-room-server": "^0.1.2",
+    "cookie": "^1.0.2",
     "polka": "^0.5.2",
     "serve-static": "^1.16.2",
     "ws": "^8.18.0"

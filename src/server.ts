@@ -22,9 +22,10 @@ interface SocketState {
     clientId?: string
     readonly: boolean
 }
-interface SSWebSocket extends WebSocket {
+export interface SSWebSocket extends WebSocket {
     ss: SocketState
     isAlive: boolean
+    cookies?: string
 }
 export interface RoomClientMap {
     [id:string]: RoomClientInfo
@@ -38,7 +39,7 @@ export interface RoomMap {
     [id:string]: RoomInfo
 }
 // throw an error to fail :-)
-export type CheckHelloReq = (wss:WSS, req:HelloReq, clientId:string) => Promise< { clientState: KVStore, readonly: boolean } >
+export type CheckHelloReq = (wss:WSS, req:HelloReq, clientId:string, sws:SSWebSocket) => Promise< { clientState: KVStore, readonly: boolean } >
 export type HandleActionReq = (wss:WSS, req:ActionReq, room:RoomInfo, clientId:string, clientInfo:RoomClientInfo) => Promise< ActionResp >
 export type CheckChangeReq = (wss:WSS, req:ChangeReq, room:RoomInfo, clientId:string, clientInfo:RoomClientInfo) => Promise< { roomChanges?: KVSet[], clientChanges?: KVSet[], echo?: boolean } >
 
@@ -88,9 +89,11 @@ export class WSS {
         this.wss.on('connection', function connection(ws, req) {
             let clientId = `connection:${++_this.client}`
             const remote = req.headers['x-forwarded-for'] || req.socket.remoteAddress
+            const cookieHeader = req.headers['cookie'] 
             console.log(`Connected websocket (${clientId} from ${remote})`);
             let sws = ws as SSWebSocket
-
+            sws.cookies = cookieHeader
+            
             ws.on('error', function error(event) { 
                 console.error(`Error on ${clientId}`, event) 
             });
@@ -106,7 +109,7 @@ export class WSS {
                             return
                         }
                         let { clientState, readonly } = _this.onHelloReq 
-                        ? await _this.onHelloReq(wss, helloReq, clientId) 
+                        ? await _this.onHelloReq(wss, helloReq, clientId, sws) 
                         : { clientState: helloReq.clientState, readonly: !!helloReq.readonly }
                         // OK
                         _this.clearTimer(sws)
