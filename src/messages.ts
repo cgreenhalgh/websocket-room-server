@@ -152,7 +152,7 @@ export function validateChangeReq(m:any) : ChangeReq {
         type: MESSAGE_TYPE.CHANGE_REQ,
         echo: m.echo,
         roomChanges: m.roomChanges ? validateKVSets(m.roomChanges) : undefined,
-        clientChanges: m.roomChanges ? validateKVSets(m.clientChanges) : undefined,
+        clientChanges: m.clientChanges ? validateKVSets(m.clientChanges) : undefined,
     }
 }
 export function validateKVSets(m:any) : KVSet[] {

@@ -33,6 +33,8 @@ wss.addWebsockets(server)
 
 const MYPROTOCOL = "cardographer:1"
 
+wss.debug = true
+
 // example handlers for testing/validation
 wss.onHelloReq = async function (wss: WSS, req: HelloReq, clientId: string, sws: SSWebSocket) : Promise<{ clientState: KVStore, readonly: boolean } > {
     console.log(`on hello for ${clientId} in room ${req.roomId} with protocol ${req.roomProtocol}`)

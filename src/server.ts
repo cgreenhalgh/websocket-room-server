@@ -53,16 +53,18 @@ export class WSS {
     onHelloReq?: CheckHelloReq
     onActionReq?: HandleActionReq
     onChangeReq?: CheckChangeReq
-
-    constructor() {
+    debug:boolean
+    
+    constructor(debug:boolean = false) {
         let _this = this
+        this.debug = debug
         // heartbeat - see https://github.com/websockets/ws?tab=readme-ov-file#how-to-detect-and-close-broken-connections
         const interval = setInterval(function ping() {
             //console.log(`ping...`)
             _this.wss.clients.forEach(function each(ws:SSWebSocket) {
                 //console.log(`ping ${ws}`)
                 if (ws.isAlive === false) {
-                    console.log(`timeout websocket ${ws.ss?.clientId}`)
+                    if (debug) console.log(`timeout websocket ${ws.ss?.clientId}`)
                     return ws.terminate(); // causes close event
                 }
                 ws.isAlive = false;
@@ -77,7 +79,7 @@ export class WSS {
 
     addWebsockets (httpServer:http.Server) : void {
         const _this = this
-        console.log(`Set up websockets on ${path}...`)
+        if (this.debug) console.log(`Set up websockets on ${path}...`)
         httpServer.on('upgrade', (req, socket, head) => {
             if (this.wss.shouldHandle(req)) {
                 this.wss.handleUpgrade(req, socket, head, function done(ws) {
@@ -90,7 +92,7 @@ export class WSS {
             let clientId = `connection:${++_this.client}`
             const remote = req.headers['x-forwarded-for'] || req.socket.remoteAddress
             const cookieHeader = req.headers['cookie'] 
-            console.log(`Connected websocket (${clientId} from ${remote})`);
+            if (_this.debug) console.log(`Connected websocket (${clientId} from ${remote})`);
             let sws = ws as SSWebSocket
             sws.cookies = cookieHeader
             
@@ -98,7 +100,7 @@ export class WSS {
                 console.error(`Error on ${clientId}`, event) 
             });
             ws.on('message', async function message(data) {
-                console.log(`message from ${clientId}: ${data}`);
+                if (_this.debug) console.log(`message from ${clientId}: ${data}`);
                 try {
                     if (sws.ss.status == CLIENT_STATUS.WAITING_FOR_HELLO) {
                         sws.ss.status = CLIENT_STATUS.PROCESSING_HELLO
@@ -119,7 +121,7 @@ export class WSS {
                         // default room setup
                         let room = _this.rooms[sws.ss.roomId]
                         if (!room) {
-                            console.log(`creating room ${sws.ss.roomId} (default)`)
+                            if (_this.debug) console.log(`creating room ${sws.ss.roomId} (default)`)
                             room = {
                                 id: sws.ss.roomId,
                                 clients: {},
@@ -157,7 +159,7 @@ export class WSS {
                     } else if (sws.ss.status == CLIENT_STATUS.PROCESSING_HELLO) {
                         throw new Error(`received message while processing hello`)
                     } else if (sws.ss.status == CLIENT_STATUS.CLOSING || sws.ss.status == CLIENT_STATUS.CLOSED) {
-                        console.log(`ignore message while closing/closed`)
+                        if (_this.debug) console.log(`ignore message while closing/closed`)
                     } else if (sws.ss.status == CLIENT_STATUS.ACTIVE) {
                         let msg = JSON.parse(String(data))
                         if (typeof(msg.type) !== 'number') {
@@ -179,13 +181,13 @@ export class WSS {
                                 for (let c of roomChanges) {
                                     room.state[c.key] = c.value
                                 }
-                                console.log(`room ${sws.ss.roomId} state`, room.state)
+                                if (_this.debug) console.log(`room ${sws.ss.roomId} state`, room.state)
                             }
                             if (clientChanges) {
                                 for (let c of clientChanges) {
                                     client.clientState[c.key] = c.value
                                 }
-                                console.log(`client ${sws.ss.clientId} state`, client.clientState)
+                                if (_this.debug) console.log(`client ${sws.ss.clientId} state`, client.clientState)
                             }
                             // notify
                             if (!sws.ss.readonly && (changeReq.clientChanges || changeReq.roomChanges)) {
@@ -210,12 +212,12 @@ export class WSS {
                         }
                     }
                 } catch (err) {
-                    console.log(`Error handling message from ${clientId}: ${err.message}`, err)
+                    if (_this.debug) console.log(`Error handling message from ${clientId}: ${err.message}`, err)
                     _this.closeSocket(sws, `error: ${err.message}`)
                 }
             });
             ws.on('close', function () {
-                console.log(`close event on ${clientId}`);
+                if (_this.debug) console.log(`close event on ${clientId}`);
                 sws.ss.status = CLIENT_STATUS.CLOSED
                 _this.tidyUp(sws)
             });
@@ -259,7 +261,7 @@ export class WSS {
     tidyUp(sws: SSWebSocket) {
         this.clearTimer(sws)
         if (sws.ss.roomId && this.rooms[sws.ss.roomId] && sws.ss.clientId && this.rooms[sws.ss.roomId].clients[sws.ss.clientId]) {
-            console.log(`remove client ${sws.ss.clientId} from room ${sws.ss.roomId}`)
+            if (this.debug) console.log(`remove client ${sws.ss.clientId} from room ${sws.ss.roomId}`)
             delete this.rooms[sws.ss.roomId].clients[sws.ss.clientId]
             if (!sws.ss.readonly) {
                 // broadcast
@@ -283,7 +285,7 @@ export class WSS {
         this.closeSocket(sws, 'no hello received in time')
     }
     closeSocket(sws: SSWebSocket, reason: string) {
-        console.log(`close ${sws.ss.clientId} - ${reason}`)
+        if (this.debug) console.log(`close ${sws.ss.clientId} - ${reason}`)
         if (sws.ss.status === CLIENT_STATUS.ACTIVE) {
             sws.ss.status = CLIENT_STATUS.CLOSING
         }
