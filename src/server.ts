@@ -42,6 +42,7 @@ export interface RoomMap {
 export type CheckHelloReq = (wss:WSS, req:HelloReq, clientId:string, sws:SSWebSocket) => Promise< { clientState: KVStore, readonly: boolean } >
 export type HandleActionReq = (wss:WSS, req:ActionReq, room:RoomInfo, clientId:string, clientInfo:RoomClientInfo) => Promise< ActionResp >
 export type CheckChangeReq = (wss:WSS, req:ChangeReq, room:RoomInfo, clientId:string, clientInfo:RoomClientInfo) => Promise< { roomChanges?: KVSet[], clientChanges?: KVSet[], echo?: boolean } >
+export type HandleLeave = (wss:WSS, room:RoomInfo, clientId:string, clientInfo:RoomClientInfo) => Promise< void >
 
 const HELLO_TIMEOUT_MS = 5000
 const HEARTBEAT_INTERVAL_MS = 10000 // 30000
@@ -53,6 +54,7 @@ export class WSS {
     onHelloReq?: CheckHelloReq
     onActionReq?: HandleActionReq
     onChangeReq?: CheckChangeReq
+    onLeave?: HandleLeave
     debug:boolean
     
     constructor(debug:boolean = false) {
@@ -262,7 +264,9 @@ export class WSS {
         this.clearTimer(sws)
         if (sws.ss.roomId && this.rooms[sws.ss.roomId] && sws.ss.clientId && this.rooms[sws.ss.roomId].clients[sws.ss.clientId]) {
             if (this.debug) console.log(`remove client ${sws.ss.clientId} from room ${sws.ss.roomId}`)
-            delete this.rooms[sws.ss.roomId].clients[sws.ss.clientId]
+            let room = this.rooms[sws.ss.roomId]
+            const client = room.clients[sws.ss.clientId]
+            delete room.clients[sws.ss.clientId]
             if (!sws.ss.readonly) {
                 // broadcast
                 let removeClients: string[] = [ sws.ss.clientId ]
@@ -271,8 +275,10 @@ export class WSS {
             if (Object.keys(this.rooms[sws.ss.roomId].clients).length == 0) {
                 console.log(`room ${sws.ss.roomId} is now empty`)
             }
+            if (this.onLeave) {
+                this.onLeave(this, room, sws.ss.clientId, client)
+            }
         }
-        // TODO announce leave
     }
     clearTimer(sws: SSWebSocket) {
         if (sws.ss.closeTimer) {

@@ -69,6 +69,8 @@ wss.onActionReq = async function(wss:WSS, req:ActionReq, room:RoomInfo, clientId
         }
     }
 }
-
+wss.onLeave = async function(wss:WSS, room:RoomInfo, clientId:string, clientInfo:RoomClientInfo) {
+    console.log(`handle client ${clientId} left room ${room.id} (${JSON.stringify(clientInfo.clientState)})`)
+}
 
 export { app };
