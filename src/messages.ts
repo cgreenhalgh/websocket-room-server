@@ -10,7 +10,7 @@ export interface HelloReq {
     clientType?: string
     clientName?: string
     clientState: KVStore
-    readonly?: boolean // default true
+    readonly?: boolean // default false
 }
 export const PROTOCOL = 'websocket-room-server:1'
 export interface Message {
@@ -40,6 +40,7 @@ export interface HelloSuccessResp {
     clientId: string
     clients: ClientMap
     roomState: KVStore
+    readonly: boolean
 }
 // state change request
 export interface ChangeReq {

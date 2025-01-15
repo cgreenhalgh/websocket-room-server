@@ -146,6 +146,7 @@ export class WSS {
                             clientId: sws.ss.clientId,
                             clients: _this.getClientMap(room),
                             roomState: room.state,
+                            readonly,
                         }
                         ws.send(JSON.stringify(helloResp))
                         if (!readonly) {
